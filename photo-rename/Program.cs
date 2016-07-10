@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Mono.Options;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace photo_rename
 {
@@ -17,12 +15,22 @@ namespace photo_rename
 
         static void Main(string[] args)
         {
-            // TODO: Accept via command line
             var inputDir = Directory.GetCurrentDirectory();
-            // TODO: Accept via command line
             var outputDir = Directory.GetCurrentDirectory();
+            bool copy = false;
+            bool recursive = false;
 
-            var inputFiles = Directory.GetFiles(inputDir);
+            var s = new OptionSet()
+            {
+                {"input=|in=", v => inputDir = v },
+                {"output=|out=", v => outputDir = v },
+                {"copy|c", v => copy = (v != null) },
+                {"recursive|r", v => recursive = (v != null) }
+            };
+
+            s.Parse(args);
+
+            var inputFiles = Directory.GetFiles(inputDir, "*.*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 
             // Default output format is %outputdir%\{year}\{month}\{day}\{filename}
             // TODO: Copy files to output - optional
@@ -33,14 +41,19 @@ namespace photo_rename
                 {
                     var imageDate = ExtractDateTime(file);
 
-                    var imagePath = CombinePath(
-                        CombinePath(
-                            CombinePath(outputDir, imageDate.Year.ToString(CultureInfo.InvariantCulture))
-                            , imageDate.Month.ToString("D2", CultureInfo.InvariantCulture)),
-                        imageDate.Day.ToString("D2", CultureInfo.InvariantCulture));
+                    var imagePath = Path.Combine(
+                                        outputDir,
+                                        imageDate.Year.ToString(CultureInfo.InvariantCulture),
+                                        imageDate.Month.ToString("D2", CultureInfo.InvariantCulture),
+                                        imageDate.Day.ToString("D2", CultureInfo.InvariantCulture));
+                    Directory.CreateDirectory(imagePath);
 
-                    // File.Move requires a full path
-                    File.Move(file, Path.Combine(imagePath, Path.GetFileName(file)));
+                    // File.Copy requires a full path
+                    File.Copy(file, Path.Combine(imagePath, Path.GetFileName(file)));
+                    if(!copy)
+                    {
+                        File.Delete(file);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -61,13 +74,6 @@ namespace photo_rename
                     return DateTime.ParseExact(dateString, "yyyy:MM:d H:m:s", CultureInfo.InvariantCulture);
                 }
             }
-        }
-
-        private static string CombinePath(string root, string sub)
-        {
-            var path = Path.Combine(root, sub);
-            Directory.CreateDirectory(path);
-            return path;
         }
     }
 }
